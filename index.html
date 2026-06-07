@@ -403,6 +403,19 @@
     .n-carb { color: #fbbf24; }
     .n-fat  { color: #f87171; }
 
+    /* ── Weight goal card ── */
+    .goal-meta       { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .goal-weights    { display: flex; align-items: center; gap: 14px; }
+    .goal-w-box      { text-align: center; }
+    .goal-w-val      { font-size: 1.25rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .goal-w-lbl      { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+    .goal-arrow      { font-size: 1.3rem; color: var(--muted); }
+    .goal-pct        { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+    .goal-bar-wrap   { margin: 2px 0 10px; }
+    .goal-eta        { font-size: 0.78rem; color: var(--muted); text-align: center; }
+    .goal-eta strong { color: var(--text); }
+    .goal-empty      { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 8px 0 4px; line-height: 1.5; }
+
     /* ── Progress view ── */
     .streak-row {
       display: flex; gap: 12px;
@@ -726,6 +739,12 @@
       </div>
     </div>
 
+    <!-- Weight goal -->
+    <div class="card">
+      <div class="card-title">Weight Goal</div>
+      <div id="weight-goal-content"></div>
+    </div>
+
     <!-- Weight log -->
     <div class="card">
       <div class="card-title">Weight Log</div>
@@ -764,6 +783,10 @@
       <div class="field-row">
         <span class="field-lbl">Weight (kg)</span>
         <input class="field-inp" id="s-weight" type="number" min="20" max="300" step="0.1" placeholder="47" />
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Target Weight (kg)</span>
+        <input class="field-inp" id="s-target-weight" type="number" min="20" max="300" step="0.1" placeholder="55" />
       </div>
       <div class="field-row">
         <span class="field-lbl">Height (cm)</span>
@@ -1686,31 +1709,120 @@
         return;
       }
 
+      const p = loadProfile();
+      const labels = weights.map(w => {
+        const d = new Date(w.date);
+        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      });
+
+      const datasets = [{
+        label: 'Weight',
+        data: weights.map(w => w.kg),
+        borderColor: '#22c55e', backgroundColor: '#22c55e22',
+        pointBackgroundColor: '#22c55e', pointRadius: 4,
+        fill: true, tension: 0.35,
+      }];
+
+      if (p.targetWeight) {
+        datasets.push({
+          label: 'Target',
+          data: weights.map(() => p.targetWeight),
+          borderColor: '#f59e0b',
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+        });
+      }
+
       weightChart = new Chart(ctx, {
         type: 'line',
-        data: {
-          labels: weights.map(w => {
-            const d = new Date(w.date);
-            return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-          }),
-          datasets: [{
-            data: weights.map(w => w.kg),
-            borderColor: '#22c55e', backgroundColor: '#22c55e22',
-            pointBackgroundColor: '#22c55e', pointRadius: 4,
-            fill: true, tension: 0.35,
-          }]
-        },
+        data: { labels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: {
-            callbacks: { label: ctx => ctx.parsed.y + ' kg' }
-          }},
+          plugins: {
+            legend: { display: !!p.targetWeight, labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 16 } },
+            tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y + ' kg' } }
+          },
           scales: {
             x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', maxTicksLimit: 7 } },
             y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
           }
         }
       });
+    }
+
+    function renderWeightGoalCard() {
+      const el = document.getElementById('weight-goal-content');
+      if (!el) return;
+      const p = loadProfile();
+      const target = p.targetWeight;
+
+      if (!target) {
+        el.innerHTML = '<div class="goal-empty">Set a <strong>Target Weight</strong> in Settings to track your goal progress here.</div>';
+        return;
+      }
+
+      const weights = getWeightLog();
+      const current = weights.length > 0 ? weights[weights.length - 1].kg : p.weight;
+      const start   = p.weight;
+      const totalChange = target - start;
+
+      let pct, remaining, direction;
+      if (Math.abs(totalChange) < 0.1) {
+        pct = 100; remaining = 0; direction = 'maintain';
+      } else if (totalChange > 0) {
+        direction = 'gain';
+        pct       = Math.min(100, Math.max(0, Math.round(((current - start) / totalChange) * 100)));
+        remaining = Math.max(0, Math.round((target - current) * 10) / 10);
+      } else {
+        direction = 'lose';
+        pct       = Math.min(100, Math.max(0, Math.round(((start - current) / (start - target)) * 100)));
+        remaining = Math.max(0, Math.round((current - target) * 10) / 10);
+      }
+
+      const reached = remaining === 0 && direction !== 'maintain';
+      let etaText = '';
+      if (remaining > 0) {
+        const weeklyRate = direction === 'gain' ? 0.4 : 0.5;
+        const weeks = Math.ceil(remaining / weeklyRate);
+        etaText = weeks <= 8
+          ? `~${weeks} week${weeks !== 1 ? 's' : ''} estimated`
+          : `~${Math.round(weeks / 4.3)} month${Math.round(weeks / 4.3) !== 1 ? 's' : ''} estimated`;
+      }
+
+      const remainingLabel = remaining === 0
+        ? ''
+        : direction === 'gain'
+          ? `+${remaining} kg to go`
+          : `-${remaining} kg to go`;
+
+      el.innerHTML = `
+        <div class="goal-meta">
+          <div class="goal-weights">
+            <div class="goal-w-box">
+              <div class="goal-w-val">${current} kg</div>
+              <div class="goal-w-lbl">Current</div>
+            </div>
+            <div class="goal-arrow">→</div>
+            <div class="goal-w-box">
+              <div class="goal-w-val" style="color:var(--accent)">${target} kg</div>
+              <div class="goal-w-lbl">Target</div>
+            </div>
+          </div>
+          <div class="goal-pct">${pct}%</div>
+        </div>
+        <div class="goal-bar-wrap">
+          <div class="prog-track">
+            <div class="prog-fill fill-over" style="width:${pct}%"></div>
+          </div>
+        </div>
+        <div class="goal-eta">
+          ${reached || direction === 'maintain'
+            ? '🎉 <strong>Goal reached!</strong> Keep it up!'
+            : `<strong>${remainingLabel}</strong>${etaText ? ' · ' + etaText : ''}`}
+        </div>`;
     }
 
     // ── Weekly averages ──
@@ -1761,6 +1873,7 @@
       }
 
       renderCalorieBarChart(logs);
+      renderWeightGoalCard();
       renderWeightChart();
       renderWeeklyAverages(logs);
     }
@@ -1769,7 +1882,7 @@
 
     // ── Settings ──
 
-    const DEFAULT_PROFILE = { age:21, weight:47, height:170, activity:1.375, goal:'gain', gender:'male' };
+    const DEFAULT_PROFILE = { age:21, weight:47, height:170, activity:1.375, goal:'gain', gender:'male', targetWeight: null };
 
     function loadProfile() {
       try { return JSON.parse(localStorage.getItem('dt_profile')) || { ...DEFAULT_PROFILE }; }
@@ -1828,8 +1941,9 @@
       document.getElementById('s-weight').value   = p.weight;
       document.getElementById('s-height').value   = p.height;
       document.getElementById('s-activity').value = p.activity;
-      document.getElementById('s-goal').value     = p.goal;
-      document.getElementById('s-gender').value   = p.gender;
+      document.getElementById('s-goal').value          = p.goal;
+      document.getElementById('s-gender').value        = p.gender;
+      document.getElementById('s-target-weight').value = p.targetWeight || '';
     }
 
     function saveAndRecalc() {
@@ -1838,12 +1952,15 @@
         weight:   parseFloat(document.getElementById('s-weight').value) || DEFAULT_PROFILE.weight,
         height:   parseFloat(document.getElementById('s-height').value) || DEFAULT_PROFILE.height,
         activity: parseFloat(document.getElementById('s-activity').value),
-        goal:     document.getElementById('s-goal').value,
-        gender:   document.getElementById('s-gender').value,
+        goal:         document.getElementById('s-goal').value,
+        gender:       document.getElementById('s-gender').value,
+        targetWeight: parseFloat(document.getElementById('s-target-weight').value) || null,
       };
       saveProfile(p);
       applyTargets(p);
       renderTargetGrid();
+      renderWeightGoalCard();
+      refreshDashboard();
       showToast('Targets updated!');
     }
 
