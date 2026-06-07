@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Diet Tracker" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <title>Diet Tracker</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #111827;
+      --surface:   #1f2937;
+      --surface2:  #374151;
+      --border:    #374151;
+      --text:      #f9fafb;
+      --muted:     #9ca3af;
+      --accent:    #22c55e;
+      --accent-dim:#16a34a;
+      --danger:    #ef4444;
+      --nav-h:     64px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      max-width: 430px;
+      margin: 0 auto;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── Views ── */
+    .view {
+      display: none;
+      padding: 20px 16px calc(var(--nav-h) + 16px);
+      min-height: 100dvh;
+    }
+    .view.active { display: block; }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .page-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .page-subtitle {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Placeholder content ── */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 48px 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .placeholder-icon {
+      font-size: 3rem;
+      opacity: 0.4;
+    }
+    .placeholder-text {
+      font-size: 0.95rem;
+    }
+    .placeholder-sub {
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+
+    /* ── Bottom nav ── */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      height: var(--nav-h);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: stretch;
+      z-index: 100;
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 500;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .nav-item svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.15s;
+    }
+    .nav-item.active {
+      color: var(--accent);
+    }
+
+    /* ── Accent button ── */
+    .btn-accent {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 24px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-accent:active { transform: scale(0.97); background: var(--accent-dim); }
+
+    /* ── Home view specifics (Phase 3 will fill these) ── */
+    .date-row {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* ── Search ── */
+    .search-wrap { position: relative; margin-bottom: 12px; }
+    .search-input {
+      width: 100%; padding: 12px 16px 12px 40px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text); font-size: 0.95rem;
+      outline: none;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); pointer-events: none;
+    }
+    .food-list { display: flex; flex-direction: column; gap: 8px; }
+    .food-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface2); border-radius: 10px; padding: 11px 14px;
+      cursor: pointer; border: 1px solid transparent;
+      transition: border-color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .food-item:active { border-color: var(--accent); }
+    .food-name { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+    .food-cat  { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .food-cal  { font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .food-macros { font-size: 0.68rem; color: var(--muted); margin-top: 2px; text-align: right; }
+    .empty-state { text-align: center; padding: 24px; color: var(--muted); font-size: 0.85rem; }
+    .category-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      background: var(--surface2); font-size: 0.68rem; color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── Greeting ── */
+    .greeting { font-size: 1.35rem; font-weight: 700; }
+
+    /* ── Calorie ring ── */
+    .ring-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; padding: 4px 0 8px;
+    }
+    .ring-canvas-wrap { position: relative; width: 180px; height: 180px; }
+    .ring-canvas-wrap canvas { width: 180px !important; height: 180px !important; }
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .ring-eaten  { font-size: 1.9rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .ring-label  { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .ring-remain { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .ring-stats  {
+      display: flex; gap: 24px; justify-content: center; width: 100%;
+    }
+    .ring-stat   { text-align: center; }
+    .ring-stat-val  { font-size: 1rem; font-weight: 700; }
+    .ring-stat-lbl  { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+    .stat-protein   { color: #60a5fa; }
+    .stat-carbs     { color: #fbbf24; }
+    .stat-fat       { color: #f87171; }
+
+    /* ── Progress bars ── */
+    .prog-list { display: flex; flex-direction: column; gap: 11px; }
+    .prog-row  { display: flex; flex-direction: column; gap: 4px; }
+    .prog-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .prog-name { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .prog-vals { font-size: 0.72rem; color: var(--muted); }
+    .prog-track {
+      height: 7px; background: var(--surface2); border-radius: 99px; overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.4s ease;
+      min-width: 2px;
+    }
+    .fill-protein   { background: #60a5fa; }
+    .fill-carbs     { background: #fbbf24; }
+    .fill-fat       { background: #f87171; }
+    .fill-fiber     { background: #a78bfa; }
+    .fill-iron      { background: #f97316; }
+    .fill-calcium   { background: #34d399; }
+    .fill-vitD      { background: #facc15; }
+    .fill-b12       { background: #e879f9; }
+    .fill-zinc      { background: #38bdf8; }
+    .fill-magnesium { background: #fb923c; }
+    .fill-potassium { background: #4ade80; }
+    .fill-over      { background: var(--accent); }
+
+    /* ── Water tracker ── */
+    .water-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .water-count  { font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+    .water-grid   { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+    .glass-btn {
+      aspect-ratio: 1; border: none; background: var(--surface2);
+      border-radius: 10px; font-size: 1.25rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass-btn.filled { background: #1e40af44; }
+    .glass-btn:active { transform: scale(0.9); }
+
+    /* ── Quick add FAB ── */
+    .fab {
+      position: fixed; bottom: calc(var(--nav-h) + 16px); right: 16px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--accent); color: #000; font-size: 1.5rem; font-weight: 700;
+      border: none; cursor: pointer; box-shadow: 0 4px 14px #22c55e55;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, background 0.15s;
+      -webkit-tap-highlight-color: transparent; z-index: 99;
+    }
+    .fab:active { transform: scale(0.92); background: var(--accent-dim); }
+
+    /* ── Meal cards ── */
+    .meal-card {
+      background: var(--surface); border-radius: 16px;
+      border: 1px solid var(--border); margin-bottom: 14px; overflow: hidden;
+    }
+    .meal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px 10px;
+    }
+    .meal-name { font-size: 0.95rem; font-weight: 700; }
+    .meal-kcal { font-size: 0.82rem; font-weight: 700; color: var(--accent); }
+    .meal-entries { padding: 0 12px; }
+    .entry-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 4px; border-top: 1px solid var(--border);
+    }
+    .entry-name {
+      flex: 1; font-size: 0.82rem; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .entry-meta { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .entry-del {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.1rem; cursor: pointer; padding: 2px 4px;
+      border-radius: 6px; line-height: 1; transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .entry-del:active { color: var(--danger); }
+    .add-food-btn {
+      display: block; width: 100%; padding: 12px 16px;
+      background: none; border: none; border-top: 1px solid var(--border);
+      color: var(--accent); font-size: 0.85rem; font-weight: 600;
+      text-align: left; cursor: pointer; transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .add-food-btn:active { background: #22c55e11; }
+
+    /* ── Modal bottom-sheet ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: #00000090;
+      z-index: 200; display: flex; align-items: flex-end;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); width: 100%; max-width: 430px;
+      margin: 0 auto; border-radius: 20px 20px 0 0;
+      max-height: 88dvh; display: flex; flex-direction: column;
+      transform: translateY(100%); transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-handle {
+      width: 36px; height: 4px; background: var(--surface2);
+      border-radius: 99px; margin: 10px auto 0; flex-shrink: 0;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; }
+    .modal-close {
+      background: var(--surface2); border: none; color: var(--text);
+      width: 28px; height: 28px; border-radius: 50%; font-size: 1.1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .modal-body { padding: 12px 16px 24px; overflow-y: auto; flex: 1; }
+
+    /* ── Gram entry step ── */
+    .back-btn {
+      background: none; border: none; color: var(--accent);
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 0;
+      margin-bottom: 14px; display: block; -webkit-tap-highlight-color: transparent;
+    }
+    .sel-food-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 3px; }
+    .sel-food-cat  { font-size: 0.78rem; color: var(--muted); margin-bottom: 14px; }
+    .serving-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .chip {
+      padding: 6px 14px; border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+      background: var(--surface2); border: 1.5px solid transparent;
+      cursor: pointer; color: var(--muted); transition: border-color 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .chip.active { border-color: var(--accent); color: var(--accent); }
+    .gram-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .gram-input {
+      width: 90px; padding: 10px 12px; text-align: center;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text); font-size: 1.1rem; font-weight: 700; outline: none;
+    }
+    .gram-input:focus { border-color: var(--accent); }
+    .gram-unit { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+    .nutr-preview {
+      background: var(--surface2); border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .nutr-item { text-align: center; }
+    .nutr-val  { font-size: 0.9rem; font-weight: 700; }
+    .nutr-lbl  { font-size: 0.65rem; color: var(--muted); margin-top: 1px; }
+    .n-cal  { color: var(--accent); }
+    .n-pro  { color: #60a5fa; }
+    .n-carb { color: #fbbf24; }
+    .n-fat  { color: #f87171; }
+
+    /* ── Progress view ── */
+    .streak-row {
+      display: flex; gap: 12px;
+    }
+    .streak-box {
+      flex: 1; background: var(--surface2); border-radius: 12px;
+      padding: 14px 12px; text-align: center;
+    }
+    .streak-num  { font-size: 1.8rem; font-weight: 800; color: var(--accent); line-height: 1; }
+    .streak-lbl  { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+    .chart-wrap  { position: relative; height: 180px; }
+    .weight-form { display: flex; gap: 10px; margin-bottom: 14px; }
+    .weight-input {
+      flex: 1; padding: 10px 12px; background: var(--surface2);
+      border: 1.5px solid var(--border); border-radius: 10px;
+      color: var(--text); font-size: 1rem; outline: none;
+    }
+    .weight-input:focus { border-color: var(--accent); }
+    .btn-sm {
+      padding: 10px 16px; background: var(--accent); color: #000;
+      font-weight: 700; font-size: 0.85rem; border: none;
+      border-radius: 10px; cursor: pointer; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-sm:active { background: var(--accent-dim); }
+    .weekly-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .weekly-item {
+      background: var(--surface2); border-radius: 10px; padding: 10px 12px;
+    }
+    .weekly-name { font-size: 0.72rem; color: var(--muted); margin-bottom: 2px; }
+    .weekly-val  { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .weekly-pct  { font-size: 0.68rem; color: var(--accent); margin-left: 4px; }
+
+    /* ── Light theme ── */
+    [data-theme="light"] {
+      --bg:       #f3f4f6;
+      --surface:  #ffffff;
+      --surface2: #e5e7eb;
+      --border:   #d1d5db;
+      --text:     #111827;
+      --muted:    #6b7280;
+    }
+
+    /* ── Settings ── */
+    .settings-section { margin-bottom: 6px; }
+    .settings-label {
+      font-size: 0.72rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 8px; padding: 0 4px;
+    }
+    .field-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .field-row:first-of-type { border-radius: 14px 14px 0 0; }
+    .field-row:last-of-type  { border-radius: 0 0 14px 14px; border-bottom: none; }
+    .field-row:only-of-type  { border-radius: 14px; border-bottom: none; }
+    .field-lbl { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+    .field-inp {
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 0.9rem; font-weight: 600;
+      padding: 6px 10px; width: 120px; text-align: right; outline: none;
+    }
+    .field-inp:focus { border-color: var(--accent); }
+    .field-select {
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 0.85rem; font-weight: 600;
+      padding: 6px 10px; outline: none; max-width: 160px;
+    }
+    .field-select:focus { border-color: var(--accent); }
+
+    /* ── Toggle switch ── */
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+    .toggle {
+      position: relative; width: 48px; height: 26px;
+      background: var(--surface2); border-radius: 99px; cursor: pointer;
+      border: 1.5px solid var(--border); transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent); border-color: var(--accent); }
+    .toggle-knob {
+      position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; transition: transform 0.2s;
+    }
+    .toggle.on .toggle-knob { transform: translateX(22px); }
+
+    /* ── Target display ── */
+    .target-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .target-item {
+      background: var(--surface2); border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .target-name { font-size: 0.72rem; color: var(--muted); }
+    .target-val  { font-size: 0.95rem; font-weight: 700; color: var(--accent); }
+
+    /* ── Danger btn ── */
+    .btn-danger {
+      width: 100%; padding: 13px; background: #ef444420; color: var(--danger);
+      border: 1.5px solid #ef444440; border-radius: 12px; font-size: 0.9rem;
+      font-weight: 700; cursor: pointer; margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-danger:active { background: #ef444440; }
+    .btn-secondary {
+      width: 100%; padding: 13px; background: var(--surface2); color: var(--text);
+      border: 1.5px solid var(--border); border-radius: 12px; font-size: 0.9rem;
+      font-weight: 700; cursor: pointer; margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-secondary:active { background: var(--border); }
+    .save-toast {
+      position: fixed; bottom: calc(var(--nav-h) + 20px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent); color: #000; font-weight: 700;
+      padding: 10px 24px; border-radius: 99px; font-size: 0.85rem;
+      opacity: 0; transition: opacity 0.3s; z-index: 300; pointer-events: none;
+    }
+    .save-toast.show { opacity: 1; }
+
+    /* ── Safe area bottom padding for notch phones ── */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════
+       VIEW: HOME
+  ═══════════════════════════════════ -->
+  <section class="view active" id="view-home">
+    <div class="page-header">
+      <div>
+        <div class="greeting" id="greeting">Hello!</div>
+        <div class="date-row" id="home-date"></div>
+      </div>
+    </div>
+
+    <!-- Calorie ring -->
+    <div class="card">
+      <div class="card-title">Calories</div>
+      <div class="ring-wrap">
+        <div class="ring-canvas-wrap">
+          <canvas id="calorie-ring"></canvas>
+          <div class="ring-center">
+            <span class="ring-eaten" id="ring-eaten">0</span>
+            <span class="ring-label">kcal eaten</span>
+            <span class="ring-remain" id="ring-remain">2700 left</span>
+          </div>
+        </div>
+        <div class="ring-stats">
+          <div class="ring-stat">
+            <div class="ring-stat-val stat-protein" id="dash-protein">0g</div>
+            <div class="ring-stat-lbl">Protein</div>
+          </div>
+          <div class="ring-stat">
+            <div class="ring-stat-val stat-carbs" id="dash-carbs">0g</div>
+            <div class="ring-stat-lbl">Carbs</div>
+          </div>
+          <div class="ring-stat">
+            <div class="ring-stat-val stat-fat" id="dash-fat">0g</div>
+            <div class="ring-stat-lbl">Fat</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Macro progress -->
+    <div class="card">
+      <div class="card-title">Macros</div>
+      <div class="prog-list" id="macro-bars"></div>
+    </div>
+
+    <!-- Micronutrient progress -->
+    <div class="card">
+      <div class="card-title">Micronutrients</div>
+      <div class="prog-list" id="micro-bars"></div>
+    </div>
+
+    <!-- Water tracker -->
+    <div class="card">
+      <div class="water-header">
+        <span class="card-title" style="margin:0">Water</span>
+        <span class="water-count" id="water-count">0 / 12 glasses</span>
+      </div>
+      <div class="water-grid" id="water-grid"></div>
+    </div>
+  </section>
+
+  <!-- FAB: quick log -->
+  <button class="fab" id="fab-log" onclick="showView('log')" title="Log a meal">+</button>
+
+  <!-- ═══════════════════════════════════
+       VIEW: LOG
+  ═══════════════════════════════════ -->
+  <section class="view" id="view-log">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Meal Log</div>
+        <div class="date-row" id="log-date"></div>
+      </div>
+    </div>
+
+    <div class="meal-card">
+      <div class="meal-header">
+        <span class="meal-name">🌅 Breakfast</span>
+        <span class="meal-kcal" id="meal-kcal-breakfast"></span>
+      </div>
+      <div class="meal-entries" id="meal-entries-breakfast"></div>
+      <button class="add-food-btn" onclick="openAddFood('breakfast')">+ Add food</button>
+    </div>
+
+    <div class="meal-card">
+      <div class="meal-header">
+        <span class="meal-name">☀️ Lunch</span>
+        <span class="meal-kcal" id="meal-kcal-lunch"></span>
+      </div>
+      <div class="meal-entries" id="meal-entries-lunch"></div>
+      <button class="add-food-btn" onclick="openAddFood('lunch')">+ Add food</button>
+    </div>
+
+    <div class="meal-card">
+      <div class="meal-header">
+        <span class="meal-name">🌙 Dinner</span>
+        <span class="meal-kcal" id="meal-kcal-dinner"></span>
+      </div>
+      <div class="meal-entries" id="meal-entries-dinner"></div>
+      <button class="add-food-btn" onclick="openAddFood('dinner')">+ Add food</button>
+    </div>
+
+    <div class="meal-card">
+      <div class="meal-header">
+        <span class="meal-name">🍎 Snacks</span>
+        <span class="meal-kcal" id="meal-kcal-snacks"></span>
+      </div>
+      <div class="meal-entries" id="meal-entries-snacks"></div>
+      <button class="add-food-btn" onclick="openAddFood('snacks')">+ Add food</button>
+    </div>
+  </section>
+
+  <!-- ── Food add modal ── -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Add food</span>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+
+      <!-- Step 1: search -->
+      <div class="modal-body" id="modal-step-search">
+        <div class="search-wrap" style="margin-bottom:10px">
+          <span class="search-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input class="search-input" id="modal-search" type="search"
+                 placeholder="Search rice, dal, paneer…" autocomplete="off"
+                 oninput="onModalSearch(this.value)" />
+        </div>
+        <div class="food-list" id="modal-results"></div>
+      </div>
+
+      <!-- Step 2: gram entry -->
+      <div class="modal-body" id="modal-step-gram" style="display:none">
+        <button class="back-btn" onclick="backToSearch()">← Back to search</button>
+        <div class="sel-food-name" id="sel-food-name"></div>
+        <div class="sel-food-cat"  id="sel-food-cat"></div>
+        <div class="serving-chips" id="serving-chips"></div>
+        <div class="gram-row">
+          <input class="gram-input" id="gram-input" type="number"
+                 min="1" max="5000" value="100" oninput="updateGramPreview()" />
+          <span class="gram-unit">grams</span>
+        </div>
+        <div class="nutr-preview" id="nutr-preview"></div>
+        <button class="btn-accent" onclick="confirmAddFood()">Add to meal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       VIEW: PROGRESS
+  ═══════════════════════════════════ -->
+  <section class="view" id="view-progress">
+    <div class="page-header">
+      <div class="page-title">Progress</div>
+    </div>
+
+    <!-- Streak + weekly avg -->
+    <div class="card">
+      <div class="card-title">This Week</div>
+      <div class="streak-row">
+        <div class="streak-box">
+          <div class="streak-num" id="streak-count">0</div>
+          <div class="streak-lbl">day streak 🔥</div>
+        </div>
+        <div class="streak-box">
+          <div class="streak-num" id="avg-cal">—</div>
+          <div class="streak-lbl">avg kcal/day</div>
+        </div>
+        <div class="streak-box">
+          <div class="streak-num" id="days-logged">0</div>
+          <div class="streak-lbl">days logged</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7-day calorie bar chart -->
+    <div class="card">
+      <div class="card-title">Last 7 Days — Calories</div>
+      <div class="chart-wrap">
+        <canvas id="calorie-bar-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Weight log -->
+    <div class="card">
+      <div class="card-title">Weight Log</div>
+      <div class="weight-form">
+        <input class="weight-input" id="weight-input" type="number"
+               step="0.1" min="20" max="300" placeholder="Enter weight (kg)" />
+        <button class="btn-sm" onclick="logWeight()">Save</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="weight-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Weekly nutrient averages -->
+    <div class="card">
+      <div class="card-title">7-Day Averages</div>
+      <div class="weekly-grid" id="weekly-grid"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════
+       VIEW: SETTINGS
+  ═══════════════════════════════════ -->
+  <section class="view" id="view-settings">
+    <div class="page-header">
+      <div class="page-title">Settings</div>
+    </div>
+
+    <!-- Profile -->
+    <div class="settings-section">
+      <div class="settings-label">Profile</div>
+      <div class="field-row">
+        <span class="field-lbl">Age</span>
+        <input class="field-inp" id="s-age" type="number" min="10" max="100" placeholder="21" />
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Weight (kg)</span>
+        <input class="field-inp" id="s-weight" type="number" min="20" max="300" step="0.1" placeholder="47" />
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Height (cm)</span>
+        <input class="field-inp" id="s-height" type="number" min="100" max="250" placeholder="170" />
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Activity</span>
+        <select class="field-select" id="s-activity">
+          <option value="1.2">Sedentary</option>
+          <option value="1.375" selected>Lightly active</option>
+          <option value="1.55">Moderately active</option>
+          <option value="1.725">Very active</option>
+          <option value="1.9">Extra active</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Goal</span>
+        <select class="field-select" id="s-goal">
+          <option value="gain" selected>Weight Gain</option>
+          <option value="maintain">Maintenance</option>
+          <option value="lose">Weight Loss</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <span class="field-lbl">Gender</span>
+        <select class="field-select" id="s-gender">
+          <option value="male" selected>Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-accent" onclick="saveAndRecalc()" style="margin-bottom:16px">
+      Recalculate Targets
+    </button>
+
+    <!-- Current targets -->
+    <div class="settings-section">
+      <div class="settings-label">Current Daily Targets</div>
+      <div class="card" style="padding:14px">
+        <div class="target-grid" id="target-grid"></div>
+      </div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="settings-section">
+      <div class="settings-label">Appearance</div>
+      <div class="field-row" style="border-radius:14px;border:none;background:var(--surface)">
+        <span class="field-lbl">Light Mode</span>
+        <div class="toggle-wrap">
+          <div class="toggle" id="theme-toggle" onclick="toggleTheme()">
+            <div class="toggle-knob"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="settings-section">
+      <div class="settings-label">Data</div>
+      <button class="btn-secondary" onclick="exportData()">Export All Data as JSON</button>
+      <button class="btn-danger"    onclick="clearToday()">Clear Today's Log</button>
+    </div>
+
+    <!-- App info -->
+    <div style="text-align:center;padding:20px 0 8px;color:var(--muted);font-size:0.75rem">
+      Diet Tracker · Built for your gains 💪
+    </div>
+  </section>
+
+  <!-- Toast -->
+  <div class="save-toast" id="save-toast">Saved!</div>
+
+  <!-- ═══════════════════════════════════
+       BOTTOM NAV
+  ═══════════════════════════════════ -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="home" onclick="showView('home')">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      Home
+    </button>
+    <button class="nav-item" data-view="log" onclick="showView('log')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Log
+    </button>
+    <button class="nav-item" data-view="progress" onclick="showView('progress')">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Progress
+    </button>
+    <button class="nav-item" data-view="settings" onclick="showView('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <script>
+    // ── Food Database ──
+    // per100g: nutritional values per 100g | serving: default serving shown in app
+    const FOOD_DB = {
+      // ── GRAINS & CEREALS ──
+      "White Rice (cooked)":        { category:"Grains",       serving:{label:"1 cup (cooked)",grams:150}, per100g:{calories:130, protein:2.7,  carbs:28,   fat:0.3, fiber:0.4, iron:0.2, calcium:10,  vitD:0,   b12:0,    zinc:0.5, magnesium:12,  potassium:35  }},
+      "Brown Rice (cooked)":        { category:"Grains",       serving:{label:"1 cup (cooked)",grams:150}, per100g:{calories:123, protein:2.6,  carbs:26,   fat:0.9, fiber:1.8, iron:0.5, calcium:10,  vitD:0,   b12:0,    zinc:0.6, magnesium:44,  potassium:79  }},
+      "Roti / Chapati":             { category:"Grains",       serving:{label:"1 piece",grams:40},         per100g:{calories:297, protein:8.9,  carbs:56,   fat:3.7, fiber:3.9, iron:3.9, calcium:22,  vitD:0,   b12:0,    zinc:1.8, magnesium:84,  potassium:230 }},
+      "Paratha (plain)":            { category:"Grains",       serving:{label:"1 piece",grams:80},         per100g:{calories:300, protein:7.5,  carbs:45,   fat:10,  fiber:2.5, iron:2.5, calcium:30,  vitD:0,   b12:0,    zinc:1.2, magnesium:35,  potassium:150 }},
+      "Idli (steamed)":             { category:"Grains",       serving:{label:"1 piece",grams:40},         per100g:{calories:58,  protein:2.1,  carbs:12,   fat:0.4, fiber:0.5, iron:0.5, calcium:17,  vitD:0,   b12:0,    zinc:0.4, magnesium:15,  potassium:65  }},
+      "Dosa (plain)":               { category:"Grains",       serving:{label:"1 piece",grams:80},         per100g:{calories:168, protein:4.2,  carbs:30,   fat:3.5, fiber:1.2, iron:1.5, calcium:18,  vitD:0,   b12:0,    zinc:0.7, magnesium:20,  potassium:85  }},
+      "Upma":                       { category:"Grains",       serving:{label:"1 bowl",grams:150},         per100g:{calories:160, protein:4.5,  carbs:27,   fat:4.5, fiber:1.2, iron:1.8, calcium:15,  vitD:0,   b12:0,    zinc:0.6, magnesium:18,  potassium:75  }},
+      "Poha (cooked)":              { category:"Grains",       serving:{label:"1 bowl",grams:150},         per100g:{calories:130, protein:2.2,  carbs:28,   fat:0.3, fiber:0.5, iron:2.2, calcium:12,  vitD:0,   b12:0,    zinc:0.5, magnesium:15,  potassium:55  }},
+      "Oats (cooked)":              { category:"Grains",       serving:{label:"1 bowl",grams:200},         per100g:{calories:68,  protein:2.4,  carbs:12,   fat:1.4, fiber:1.7, iron:0.7, calcium:11,  vitD:0,   b12:0,    zinc:0.5, magnesium:23,  potassium:61  }},
+      "Wheat Bread":                { category:"Grains",       serving:{label:"1 slice",grams:30},         per100g:{calories:265, protein:9,    carbs:51,   fat:3.2, fiber:2.7, iron:3.6, calcium:107, vitD:0,   b12:0,    zinc:0.9, magnesium:26,  potassium:115 }},
+      "Semolina / Rava (dry)":      { category:"Grains",       serving:{label:"1 cup (dry)",grams:100},    per100g:{calories:360, protein:10,   carbs:73,   fat:1,   fiber:3.9, iron:1.5, calcium:17,  vitD:0,   b12:0,    zinc:1,   magnesium:47,  potassium:186 }},
+      "Cornflakes":                 { category:"Grains",       serving:{label:"1 bowl (dry)",grams:40},    per100g:{calories:357, protein:7.5,  carbs:84,   fat:0.5, fiber:1.2, iron:8,   calcium:3,   vitD:0,   b12:0,    zinc:0.5, magnesium:16,  potassium:119 }},
+      "Pongal":                     { category:"Grains",       serving:{label:"1 bowl",grams:150},         per100g:{calories:120, protein:4,    carbs:20,   fat:3.5, fiber:1,   iron:0.8, calcium:18,  vitD:0,   b12:0,    zinc:0.6, magnesium:20,  potassium:90  }},
+
+      // ── LEGUMES & PULSES ──
+      "Toor Dal (cooked)":          { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:116, protein:7,    carbs:20,   fat:0.4, fiber:5,   iron:1.9, calcium:50,  vitD:0,   b12:0,    zinc:0.9, magnesium:31,  potassium:325 }},
+      "Moong Dal (cooked)":         { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:105, protein:7.6,  carbs:18,   fat:0.4, fiber:4,   iron:1.4, calcium:32,  vitD:0,   b12:0,    zinc:0.8, magnesium:36,  potassium:266 }},
+      "Masoor Dal (cooked)":        { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:116, protein:9,    carbs:20,   fat:0.4, fiber:4,   iron:3.3, calcium:19,  vitD:0,   b12:0,    zinc:1.3, magnesium:36,  potassium:369 }},
+      "Chana Dal (cooked)":         { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:164, protein:9,    carbs:27,   fat:2.6, fiber:8,   iron:2.9, calcium:49,  vitD:0,   b12:0,    zinc:1.5, magnesium:48,  potassium:340 }},
+      "Urad Dal (cooked)":          { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:107, protein:7.5,  carbs:18,   fat:0.5, fiber:3.3, iron:1.5, calcium:63,  vitD:0,   b12:0,    zinc:1.1, magnesium:50,  potassium:305 }},
+      "Rajma / Kidney Beans (cooked)":{ category:"Legumes",   serving:{label:"1 bowl",grams:200},         per100g:{calories:127, protein:8.7,  carbs:22.8, fat:0.5, fiber:6.4, iron:2.9, calcium:43,  vitD:0,   b12:0,    zinc:1.1, magnesium:45,  potassium:403 }},
+      "Chole / Chickpeas (cooked)": { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:164, protein:8.9,  carbs:27,   fat:2.6, fiber:7.6, iron:2.9, calcium:49,  vitD:0,   b12:0,    zinc:1.5, magnesium:48,  potassium:291 }},
+      "Whole Moong (cooked)":       { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:105, protein:7.1,  carbs:19,   fat:0.4, fiber:4.1, iron:1.4, calcium:27,  vitD:0,   b12:0,    zinc:0.8, magnesium:36,  potassium:266 }},
+      "Green Peas (fresh)":         { category:"Legumes",      serving:{label:"1 cup",grams:100},          per100g:{calories:81,  protein:5.4,  carbs:14,   fat:0.4, fiber:5.1, iron:1.5, calcium:25,  vitD:0,   b12:0,    zinc:1.2, magnesium:33,  potassium:244 }},
+      "Soya Chunks (dry)":          { category:"Legumes",      serving:{label:"1 serving (dry)",grams:30}, per100g:{calories:345, protein:52,   carbs:33,   fat:0.5, fiber:13,  iron:9,   calcium:350, vitD:0,   b12:0,    zinc:4,   magnesium:165, potassium:500 }},
+      "Lentils (cooked)":           { category:"Legumes",      serving:{label:"1 bowl",grams:200},         per100g:{calories:116, protein:9,    carbs:20,   fat:0.4, fiber:7.9, iron:3.3, calcium:19,  vitD:0,   b12:0,    zinc:1.3, magnesium:36,  potassium:369 }},
+
+      // ── VEGETABLES ──
+      "Spinach / Palak (raw)":      { category:"Vegetables",   serving:{label:"1 cup",grams:30},           per100g:{calories:23,  protein:2.9,  carbs:3.6,  fat:0.4, fiber:2.2, iron:2.7, calcium:99,  vitD:0,   b12:0,    zinc:0.5, magnesium:79,  potassium:558 }},
+      "Spinach / Palak (cooked)":   { category:"Vegetables",   serving:{label:"1 bowl",grams:150},         per100g:{calories:23,  protein:3,    carbs:3.8,  fat:0.3, fiber:2.4, iron:3.6, calcium:136, vitD:0,   b12:0,    zinc:0.8, magnesium:87,  potassium:466 }},
+      "Broccoli":                   { category:"Vegetables",   serving:{label:"1 cup (florets)",grams:90}, per100g:{calories:34,  protein:2.8,  carbs:7,    fat:0.4, fiber:2.6, iron:0.7, calcium:47,  vitD:0,   b12:0,    zinc:0.4, magnesium:21,  potassium:316 }},
+      "Carrot":                     { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:80},per100g:{calories:41,  protein:0.9,  carbs:10,   fat:0.2, fiber:2.8, iron:0.3, calcium:33,  vitD:0,   b12:0,    zinc:0.2, magnesium:12,  potassium:320 }},
+      "Tomato":                     { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:100},per100g:{calories:18, protein:0.9,  carbs:3.9,  fat:0.2, fiber:1.2, iron:0.3, calcium:10,  vitD:0,   b12:0,    zinc:0.2, magnesium:11,  potassium:237 }},
+      "Potato (boiled)":            { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:150},per100g:{calories:87, protein:1.9,  carbs:20,   fat:0.1, fiber:1.8, iron:0.3, calcium:5,   vitD:0,   b12:0,    zinc:0.3, magnesium:22,  potassium:328 }},
+      "Onion":                      { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:80},per100g:{calories:40,  protein:1.1,  carbs:9.3,  fat:0.1, fiber:1.7, iron:0.2, calcium:23,  vitD:0,   b12:0,    zinc:0.2, magnesium:10,  potassium:146 }},
+      "Cabbage":                    { category:"Vegetables",   serving:{label:"1 cup (chopped)",grams:90}, per100g:{calories:25,  protein:1.3,  carbs:5.8,  fat:0.1, fiber:2.5, iron:0.5, calcium:40,  vitD:0,   b12:0,    zinc:0.2, magnesium:12,  potassium:170 }},
+      "Cauliflower":                { category:"Vegetables",   serving:{label:"1 cup (florets)",grams:100},per100g:{calories:25,  protein:1.9,  carbs:5,    fat:0.3, fiber:2,   iron:0.4, calcium:22,  vitD:0,   b12:0,    zinc:0.3, magnesium:15,  potassium:299 }},
+      "Bhindi / Okra":              { category:"Vegetables",   serving:{label:"1 cup (chopped)",grams:100},per100g:{calories:33,  protein:1.9,  carbs:7.5,  fat:0.2, fiber:3.2, iron:0.6, calcium:82,  vitD:0,   b12:0,    zinc:0.6, magnesium:57,  potassium:299 }},
+      "Brinjal / Eggplant":         { category:"Vegetables",   serving:{label:"1 cup (cubed)",grams:100},  per100g:{calories:25,  protein:1,    carbs:6,    fat:0.2, fiber:3,   iron:0.2, calcium:9,   vitD:0,   b12:0,    zinc:0.2, magnesium:14,  potassium:229 }},
+      "Cucumber":                   { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:150},per100g:{calories:16, protein:0.7,  carbs:3.6,  fat:0.1, fiber:0.5, iron:0.3, calcium:16,  vitD:0,   b12:0,    zinc:0.2, magnesium:13,  potassium:147 }},
+      "Sweet Potato":               { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:130},per100g:{calories:86, protein:1.6,  carbs:20,   fat:0.1, fiber:3,   iron:0.6, calcium:30,  vitD:0,   b12:0,    zinc:0.3, magnesium:25,  potassium:337 }},
+      "Bitter Gourd / Karela":      { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:100},per100g:{calories:17, protein:1,    carbs:3.7,  fat:0.2, fiber:2.8, iron:0.4, calcium:19,  vitD:0,   b12:0,    zinc:0.8, magnesium:17,  potassium:296 }},
+      "Drumstick / Moringa":        { category:"Vegetables",   serving:{label:"4-5 pieces",grams:100},     per100g:{calories:37,  protein:2.1,  carbs:8.5,  fat:0.2, fiber:3.2, iron:0.4, calcium:30,  vitD:0,   b12:0,    zinc:0.4, magnesium:42,  potassium:461 }},
+      "Green Beans":                { category:"Vegetables",   serving:{label:"1 cup",grams:100},          per100g:{calories:31,  protein:1.8,  carbs:7,    fat:0.1, fiber:3.4, iron:1,   calcium:37,  vitD:0,   b12:0,    zinc:0.2, magnesium:25,  potassium:211 }},
+      "Pumpkin":                    { category:"Vegetables",   serving:{label:"1 cup (cubed)",grams:120},  per100g:{calories:26,  protein:1,    carbs:6.5,  fat:0.1, fiber:0.5, iron:0.8, calcium:21,  vitD:0,   b12:0,    zinc:0.3, magnesium:12,  potassium:340 }},
+      "Sweet Corn":                 { category:"Vegetables",   serving:{label:"1 cob / 1 cup",grams:150},  per100g:{calories:86,  protein:3.2,  carbs:19,   fat:1.2, fiber:2.7, iron:0.5, calcium:2,   vitD:0,   b12:0,    zinc:0.5, magnesium:37,  potassium:270 }},
+      "Capsicum / Bell Pepper":     { category:"Vegetables",   serving:{label:"1 piece (medium)",grams:120},per100g:{calories:31, protein:1,    carbs:6,    fat:0.3, fiber:2.1, iron:0.4, calcium:7,   vitD:0,   b12:0,    zinc:0.2, magnesium:12,  potassium:211 }},
+      "Mushroom":                   { category:"Vegetables",   serving:{label:"1 cup",grams:70},           per100g:{calories:22,  protein:3.1,  carbs:3.3,  fat:0.3, fiber:1,   iron:0.5, calcium:3,   vitD:7,   b12:0,    zinc:0.5, magnesium:9,   potassium:318 }},
+
+      // ── DAIRY ──
+      "Milk (full fat)":            { category:"Dairy",        serving:{label:"1 glass (200ml)",grams:200},per100g:{calories:61,  protein:3.2,  carbs:4.8,  fat:3.3, fiber:0,   iron:0.1, calcium:113, vitD:1.2, b12:0.45, zinc:0.4, magnesium:10,  potassium:150 }},
+      "Milk (toned/low fat)":       { category:"Dairy",        serving:{label:"1 glass (200ml)",grams:200},per100g:{calories:42,  protein:3.5,  carbs:5,    fat:1.5, fiber:0,   iron:0.1, calcium:125, vitD:1.5, b12:0.5,  zinc:0.4, magnesium:11,  potassium:156 }},
+      "Curd / Yogurt (full fat)":   { category:"Dairy",        serving:{label:"1 bowl",grams:150},         per100g:{calories:61,  protein:3.5,  carbs:4.7,  fat:3.3, fiber:0,   iron:0.1, calcium:121, vitD:0,   b12:0.4,  zinc:0.6, magnesium:12,  potassium:155 }},
+      "Paneer":                     { category:"Dairy",        serving:{label:"100g",grams:100},            per100g:{calories:265, protein:18.3, carbs:3.4,  fat:20.8,fiber:0,   iron:0.2, calcium:208, vitD:0,   b12:0.3,  zinc:1.2, magnesium:8,   potassium:57  }},
+      "Buttermilk (chaas)":         { category:"Dairy",        serving:{label:"1 glass (200ml)",grams:200},per100g:{calories:40,  protein:3.3,  carbs:4.8,  fat:0.9, fiber:0,   iron:0.1, calcium:116, vitD:0,   b12:0.2,  zinc:0.4, magnesium:10,  potassium:151 }},
+      "Cheese (processed)":         { category:"Dairy",        serving:{label:"1 slice (25g)",grams:25},   per100g:{calories:300, protein:18,   carbs:2,    fat:24,  fiber:0,   iron:0.2, calcium:612, vitD:0.3, b12:0.8,  zinc:2.8, magnesium:20,  potassium:76  }},
+      "Ghee":                       { category:"Dairy",        serving:{label:"1 tsp",grams:5},            per100g:{calories:900, protein:0,    carbs:0,    fat:100, fiber:0,   iron:0,   calcium:0,   vitD:0,   b12:0,    zinc:0,   magnesium:0,   potassium:0   }},
+      "Butter":                     { category:"Dairy",        serving:{label:"1 tsp",grams:5},            per100g:{calories:717, protein:0.9,  carbs:0.1,  fat:81,  fiber:0,   iron:0,   calcium:24,  vitD:1.5, b12:0.2,  zinc:0.1, magnesium:2,   potassium:24  }},
+      "Whey Protein Powder":        { category:"Dairy",        serving:{label:"1 scoop (30g)",grams:30},   per100g:{calories:370, protein:80,   carbs:5,    fat:4,   fiber:0,   iron:1,   calcium:200, vitD:0,   b12:1,    zinc:3,   magnesium:60,  potassium:300 }},
+
+      // ── EGGS ──
+      "Whole Egg (boiled)":         { category:"Eggs",         serving:{label:"1 egg",grams:50},           per100g:{calories:155, protein:13,   carbs:1.1,  fat:11,  fiber:0,   iron:1.8, calcium:50,  vitD:87,  b12:1.11, zinc:1.3, magnesium:10,  potassium:126 }},
+      "Egg White":                  { category:"Eggs",         serving:{label:"1 egg white",grams:33},     per100g:{calories:52,  protein:11,   carbs:0.7,  fat:0.2, fiber:0,   iron:0.1, calcium:7,   vitD:0,   b12:0.09, zinc:0.03,magnesium:11,  potassium:163 }},
+      "Egg Yolk":                   { category:"Eggs",         serving:{label:"1 yolk",grams:17},          per100g:{calories:322, protein:16,   carbs:3.6,  fat:27,  fiber:0,   iron:2.7, calcium:129, vitD:218, b12:1.95, zinc:2.3, magnesium:5,   potassium:109 }},
+
+      // ── FRUITS ──
+      "Banana":                     { category:"Fruits",       serving:{label:"1 piece (medium)",grams:120},per100g:{calories:89, protein:1.1,  carbs:23,   fat:0.3, fiber:2.6, iron:0.3, calcium:5,   vitD:0,   b12:0,    zinc:0.2, magnesium:27,  potassium:358 }},
+      "Apple":                      { category:"Fruits",       serving:{label:"1 piece (medium)",grams:150},per100g:{calories:52, protein:0.3,  carbs:14,   fat:0.2, fiber:2.4, iron:0.1, calcium:6,   vitD:0,   b12:0,    zinc:0.04,magnesium:5,   potassium:107 }},
+      "Orange":                     { category:"Fruits",       serving:{label:"1 piece (medium)",grams:130},per100g:{calories:47, protein:0.9,  carbs:12,   fat:0.1, fiber:2.4, iron:0.1, calcium:40,  vitD:0,   b12:0,    zinc:0.1, magnesium:10,  potassium:181 }},
+      "Mango":                      { category:"Fruits",       serving:{label:"1 piece (medium)",grams:200},per100g:{calories:60, protein:0.8,  carbs:15,   fat:0.4, fiber:1.6, iron:0.2, calcium:11,  vitD:0,   b12:0,    zinc:0.1, magnesium:10,  potassium:168 }},
+      "Papaya":                     { category:"Fruits",       serving:{label:"1 bowl (sliced)",grams:150}, per100g:{calories:43, protein:0.5,  carbs:11,   fat:0.3, fiber:1.7, iron:0.1, calcium:20,  vitD:0,   b12:0,    zinc:0.1, magnesium:21,  potassium:182 }},
+      "Guava":                      { category:"Fruits",       serving:{label:"1 piece (medium)",grams:100},per100g:{calories:68, protein:2.6,  carbs:14,   fat:1,   fiber:5.4, iron:0.3, calcium:18,  vitD:0,   b12:0,    zinc:0.2, magnesium:22,  potassium:417 }},
+      "Grapes":                     { category:"Fruits",       serving:{label:"1 cup (small bunch)",grams:100},per100g:{calories:69,protein:0.7, carbs:18,   fat:0.2, fiber:0.9, iron:0.4, calcium:10,  vitD:0,   b12:0,    zinc:0.1, magnesium:7,   potassium:191 }},
+      "Watermelon":                 { category:"Fruits",       serving:{label:"1 slice (medium)",grams:200},per100g:{calories:30, protein:0.6,  carbs:7.6,  fat:0.2, fiber:0.4, iron:0.2, calcium:7,   vitD:0,   b12:0,    zinc:0.1, magnesium:10,  potassium:112 }},
+      "Pomegranate":                { category:"Fruits",       serving:{label:"1 piece (medium)",grams:150},per100g:{calories:83, protein:1.7,  carbs:19,   fat:1.2, fiber:4,   iron:0.3, calcium:10,  vitD:0,   b12:0,    zinc:0.4, magnesium:12,  potassium:236 }},
+      "Chickoo / Sapota":           { category:"Fruits",       serving:{label:"1 piece (medium)",grams:80}, per100g:{calories:83, protein:0.4,  carbs:20,   fat:1.1, fiber:5.3, iron:0.8, calcium:21,  vitD:0,   b12:0,    zinc:0.1, magnesium:12,  potassium:193 }},
+      "Pineapple":                  { category:"Fruits",       serving:{label:"1 slice",grams:80},          per100g:{calories:50, protein:0.5,  carbs:13,   fat:0.1, fiber:1.4, iron:0.3, calcium:13,  vitD:0,   b12:0,    zinc:0.1, magnesium:12,  potassium:109 }},
+      "Dates":                      { category:"Fruits",       serving:{label:"2 pieces",grams:20},         per100g:{calories:277,protein:1.8,  carbs:75,   fat:0.2, fiber:6.7, iron:0.9, calcium:64,  vitD:0,   b12:0,    zinc:0.4, magnesium:54,  potassium:696 }},
+
+      // ── NUTS & SEEDS ──
+      "Almonds":                    { category:"Nuts & Seeds", serving:{label:"10 pieces",grams:15},        per100g:{calories:579, protein:21,   carbs:22,   fat:50,  fiber:12.5,iron:3.7, calcium:264, vitD:0,   b12:0,    zinc:3.1, magnesium:270, potassium:733 }},
+      "Peanuts (raw)":              { category:"Nuts & Seeds", serving:{label:"1 handful (30g)",grams:30},  per100g:{calories:567, protein:26,   carbs:16,   fat:49,  fiber:8.5, iron:4.6, calcium:92,  vitD:0,   b12:0,    zinc:3.3, magnesium:168, potassium:705 }},
+      "Cashews":                    { category:"Nuts & Seeds", serving:{label:"10 pieces",grams:15},        per100g:{calories:553, protein:18,   carbs:30,   fat:44,  fiber:3.3, iron:6.7, calcium:37,  vitD:0,   b12:0,    zinc:5.8, magnesium:292, potassium:660 }},
+      "Walnuts":                    { category:"Nuts & Seeds", serving:{label:"4 halves",grams:15},         per100g:{calories:654, protein:15,   carbs:14,   fat:65,  fiber:6.7, iron:2.9, calcium:98,  vitD:0,   b12:0,    zinc:3.1, magnesium:158, potassium:441 }},
+      "Flaxseeds":                  { category:"Nuts & Seeds", serving:{label:"1 tbsp",grams:10},           per100g:{calories:534, protein:18,   carbs:29,   fat:42,  fiber:27,  iron:5.7, calcium:255, vitD:0,   b12:0,    zinc:4.3, magnesium:392, potassium:813 }},
+      "Sesame Seeds (til)":         { category:"Nuts & Seeds", serving:{label:"1 tbsp",grams:9},            per100g:{calories:573, protein:17,   carbs:23,   fat:50,  fiber:11.8,iron:14.6,calcium:975, vitD:0,   b12:0,    zinc:7.8, magnesium:351, potassium:468 }},
+      "Chia Seeds":                 { category:"Nuts & Seeds", serving:{label:"1 tbsp",grams:12},           per100g:{calories:486, protein:17,   carbs:42,   fat:31,  fiber:34,  iron:7.7, calcium:631, vitD:0,   b12:0,    zinc:4.6, magnesium:335, potassium:407 }},
+      "Sunflower Seeds":            { category:"Nuts & Seeds", serving:{label:"1 tbsp",grams:10},           per100g:{calories:584, protein:21,   carbs:20,   fat:51,  fiber:8.6, iron:5.3, calcium:78,  vitD:0,   b12:0,    zinc:5,   magnesium:325, potassium:645 }},
+      "Pumpkin Seeds":              { category:"Nuts & Seeds", serving:{label:"1 tbsp",grams:10},           per100g:{calories:559, protein:30,   carbs:11,   fat:49,  fiber:6,   iron:8.8, calcium:46,  vitD:0,   b12:0,    zinc:7.6, magnesium:592, potassium:809 }},
+
+      // ── PROTEIN / SOY ──
+      "Tofu (firm)":                { category:"Protein",      serving:{label:"100g",grams:100},            per100g:{calories:76,  protein:8,    carbs:1.9,  fat:4.8, fiber:0.3, iron:1.6, calcium:350, vitD:0,   b12:0,    zinc:0.8, magnesium:30,  potassium:121 }},
+      "Soya Milk":                  { category:"Protein",      serving:{label:"1 glass (200ml)",grams:200}, per100g:{calories:33,  protein:3.3,  carbs:1.8,  fat:1.8, fiber:0.5, iron:0.6, calcium:25,  vitD:0,   b12:0,    zinc:0.3, magnesium:18,  potassium:118 }},
+
+      // ── BEVERAGES ──
+      "Chai with Milk":             { category:"Beverages",    serving:{label:"1 cup (150ml)",grams:150},   per100g:{calories:30,  protein:1.1,  carbs:4,    fat:1.1, fiber:0,   iron:0.05,calcium:40,  vitD:0.4, b12:0.15, zinc:0.15,magnesium:4,   potassium:53  }},
+      "Coconut Water":              { category:"Beverages",    serving:{label:"1 glass (240ml)",grams:240},  per100g:{calories:19,  protein:0.7,  carbs:3.7,  fat:0.2, fiber:1.1, iron:0.1, calcium:24,  vitD:0,   b12:0,    zinc:0.1, magnesium:25,  potassium:250 }},
+      "Lassi (sweet)":              { category:"Beverages",    serving:{label:"1 glass (200ml)",grams:200},  per100g:{calories:63,  protein:2.3,  carbs:7.5,  fat:2.5, fiber:0,   iron:0.05,calcium:75,  vitD:0,   b12:0.2,  zinc:0.3, magnesium:7,   potassium:95  }},
+      "Lemon Water":                { category:"Beverages",    serving:{label:"1 glass (250ml)",grams:250},  per100g:{calories:3,   protein:0.1,  carbs:0.9,  fat:0,   fiber:0.1, iron:0,   calcium:3,   vitD:0,   b12:0,    zinc:0,   magnesium:2,   potassium:20  }},
+      "Protein Shake":              { category:"Beverages",    serving:{label:"1 glass (250ml)",grams:250},  per100g:{calories:70,  protein:12,   carbs:5,    fat:1.5, fiber:0.5, iron:0.5, calcium:100, vitD:0,   b12:0.3,  zinc:1,   magnesium:30,  potassium:150 }},
+
+      // ── SOUTH INDIAN ──
+      "Sambar":                     { category:"South Indian", serving:{label:"1 bowl (200ml)",grams:200},  per100g:{calories:34,  protein:1.6,  carbs:4.8,  fat:1,   fiber:1.2, iron:0.6, calcium:18,  vitD:0,   b12:0,    zinc:0.2, magnesium:10,  potassium:100 }},
+      "Rasam":                      { category:"South Indian", serving:{label:"1 bowl (200ml)",grams:200},  per100g:{calories:14,  protein:0.4,  carbs:2.4,  fat:0.3, fiber:0.4, iron:0.2, calcium:8,   vitD:0,   b12:0,    zinc:0.1, magnesium:4,   potassium:60  }},
+      "Curd Rice":                  { category:"South Indian", serving:{label:"1 bowl",grams:200},          per100g:{calories:90,  protein:2.8,  carbs:16,   fat:2,   fiber:0.3, iron:0.15,calcium:60,  vitD:0,   b12:0.15, zinc:0.25,magnesium:8,   potassium:80  }},
+      "Medu Vada":                  { category:"South Indian", serving:{label:"1 piece",grams:50},          per100g:{calories:212, protein:7.5,  carbs:24,   fat:10,  fiber:2,   iron:1.2, calcium:45,  vitD:0,   b12:0,    zinc:0.7, magnesium:30,  potassium:180 }},
+      "Uttapam":                    { category:"South Indian", serving:{label:"1 piece",grams:100},         per100g:{calories:132, protein:4.5,  carbs:22,   fat:3.2, fiber:1.5, iron:1.2, calcium:22,  vitD:0,   b12:0,    zinc:0.5, magnesium:18,  potassium:95  }},
+      "Appam":                      { category:"South Indian", serving:{label:"1 piece",grams:60},          per100g:{calories:110, protein:2.5,  carbs:22,   fat:1.5, fiber:0.8, iron:0.6, calcium:15,  vitD:0,   b12:0,    zinc:0.3, magnesium:10,  potassium:55  }},
+
+      // ── OILS & CONDIMENTS ──
+      "Coconut Oil":                { category:"Oils",         serving:{label:"1 tbsp",grams:14},           per100g:{calories:862, protein:0,    carbs:0,    fat:100, fiber:0,   iron:0,   calcium:0,   vitD:0,   b12:0,    zinc:0,   magnesium:0,   potassium:0   }},
+      "Olive Oil":                  { category:"Oils",         serving:{label:"1 tbsp",grams:14},           per100g:{calories:884, protein:0,    carbs:0,    fat:100, fiber:0,   iron:0.6, calcium:1,   vitD:0,   b12:0,    zinc:0,   magnesium:0,   potassium:1   }},
+      "Sunflower Oil":              { category:"Oils",         serving:{label:"1 tbsp",grams:14},           per100g:{calories:884, protein:0,    carbs:0,    fat:100, fiber:0,   iron:0,   calcium:0,   vitD:0,   b12:0,    zinc:0,   magnesium:0,   potassium:0   }},
+      "Honey":                      { category:"Condiments",   serving:{label:"1 tbsp",grams:20},           per100g:{calories:304, protein:0.3,  carbs:82,   fat:0,   fiber:0.2, iron:0.4, calcium:6,   vitD:0,   b12:0,    zinc:0.2, magnesium:2,   potassium:52  }},
+      "Jaggery (gur)":              { category:"Condiments",   serving:{label:"1 small piece (10g)",grams:10},per100g:{calories:383,protein:0.4, carbs:98,   fat:0.1, fiber:0,   iron:11,  calcium:80,  vitD:0,   b12:0,    zinc:0.3, magnesium:70,  potassium:1056}},
+      "Turmeric (haldi)":           { category:"Condiments",   serving:{label:"1 tsp",grams:3},             per100g:{calories:312, protein:10,   carbs:67,   fat:3.3, fiber:21,  iron:41,  calcium:168, vitD:0,   b12:0,    zinc:4.5, magnesium:193, potassium:2080}},
+
+      // ── SNACKS ──
+      "Banana Chips":               { category:"Snacks",       serving:{label:"1 small pack (30g)",grams:30},per100g:{calories:519,protein:1.5,  carbs:58,   fat:33,  fiber:4.3, iron:0.9, calcium:14,  vitD:0,   b12:0,    zinc:0.4, magnesium:30,  potassium:536 }},
+      "Peanut Chikki":              { category:"Snacks",       serving:{label:"1 piece (25g)",grams:25},    per100g:{calories:450, protein:13,   carbs:52,   fat:23,  fiber:3,   iron:2.5, calcium:50,  vitD:0,   b12:0,    zinc:1.5, magnesium:70,  potassium:250 }},
+      "Murukku":                    { category:"Snacks",       serving:{label:"5 pieces (30g)",grams:30},   per100g:{calories:450, protein:7,    carbs:60,   fat:21,  fiber:2,   iron:2,   calcium:30,  vitD:0,   b12:0,    zinc:0.8, magnesium:40,  potassium:180 }},
+      "Namkeen / Mixture":          { category:"Snacks",       serving:{label:"1 handful (30g)",grams:30},  per100g:{calories:480, protein:10,   carbs:56,   fat:24,  fiber:4,   iron:3,   calcium:60,  vitD:0,   b12:0,    zinc:1.5, magnesium:60,  potassium:300 }},
+      "Biscuits (plain)":           { category:"Snacks",       serving:{label:"2 pieces (15g)",grams:15},   per100g:{calories:420, protein:6,    carbs:68,   fat:14,  fiber:2,   iron:2,   calcium:50,  vitD:0,   b12:0,    zinc:0.5, magnesium:20,  potassium:100 }},
+      "Chakli":                     { category:"Snacks",       serving:{label:"3 pieces (30g)",grams:30},   per100g:{calories:460, protein:8,    carbs:58,   fat:22,  fiber:3,   iron:2.5, calcium:35,  vitD:0,   b12:0,    zinc:1,   magnesium:45,  potassium:200 }},
+    };
+
+    // ── Helpers ──
+    function searchFoods(query) {
+      if (!query || query.trim() === '') return Object.keys(FOOD_DB);
+      const q = query.toLowerCase();
+      return Object.keys(FOOD_DB).filter(name =>
+        name.toLowerCase().includes(q) || FOOD_DB[name].category.toLowerCase().includes(q)
+      );
+    }
+
+    function calculateNutrients(foodName, grams) {
+      const food = FOOD_DB[foodName];
+      if (!food) return null;
+      const f = grams / 100;
+      const n = food.per100g;
+      return {
+        food: foodName, grams,
+        calories:  Math.round(n.calories  * f * 10) / 10,
+        protein:   Math.round(n.protein   * f * 10) / 10,
+        carbs:     Math.round(n.carbs     * f * 10) / 10,
+        fat:       Math.round(n.fat       * f * 10) / 10,
+        fiber:     Math.round(n.fiber     * f * 10) / 10,
+        iron:      Math.round(n.iron      * f * 10) / 10,
+        calcium:   Math.round(n.calcium   * f * 10) / 10,
+        vitD:      Math.round(n.vitD      * f * 10) / 10,
+        b12:       Math.round(n.b12       * f * 100) / 100,
+        zinc:      Math.round(n.zinc      * f * 10) / 10,
+        magnesium: Math.round(n.magnesium * f * 10) / 10,
+        potassium: Math.round(n.potassium * f * 10) / 10,
+      };
+    }
+
+    function getServingNutrients(foodName) {
+      const food = FOOD_DB[foodName];
+      if (!food) return null;
+      return { ...calculateNutrients(foodName, food.serving.grams), servingLabel: food.serving.label };
+    }
+
+    function renderFoodResults(names) {
+      const el = document.getElementById('food-results');
+      if (!el) return;
+      const list = names.slice(0, 20);
+      if (list.length === 0) {
+        el.innerHTML = '<div class="empty-state">No foods found. You can add custom foods in Phase 4.</div>';
+        return;
+      }
+      el.innerHTML = list.map(name => {
+        const f = FOOD_DB[name];
+        const n = f.per100g;
+        return `
+        <div class="food-item">
+          <div>
+            <div class="food-name">${name}</div>
+            <div class="food-cat">${f.category} · ${f.serving.label}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-cal">${n.calories} kcal</div>
+            <div class="food-macros">P ${n.protein}g · C ${n.carbs}g · F ${n.fat}g</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function onFoodSearch(val) {
+      renderFoodResults(searchFoods(val));
+    }
+
+    // ── Register service worker ──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // ── View router ──
+    function showView(name) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('view-' + name).classList.add('active');
+      document.querySelector('[data-view="' + name + '"]').classList.add('active');
+    }
+
+    // ── Meal Logger ──
+    const MEAL_SLOTS = ['breakfast','lunch','dinner','snacks'];
+    const MEAL_META  = {
+      breakfast: { label:'Breakfast', icon:'🌅' },
+      lunch:     { label:'Lunch',     icon:'☀️'  },
+      dinner:    { label:'Dinner',    icon:'🌙'  },
+      snacks:    { label:'Snacks',    icon:'🍎'  },
+    };
+
+    let _activeSlot   = null;
+    let _selectedFood = null;
+
+    function getMealKcal(entries) {
+      return Math.round((entries || []).reduce((s, e) => s + (e.calories || 0), 0));
+    }
+
+    function renderMealEntries(slot, entries) {
+      const listEl = document.getElementById('meal-entries-' + slot);
+      const kcalEl = document.getElementById('meal-kcal-' + slot);
+      if (!listEl) return;
+      if (!entries || entries.length === 0) {
+        listEl.innerHTML = '';
+        if (kcalEl) kcalEl.textContent = '';
+        return;
+      }
+      if (kcalEl) kcalEl.textContent = getMealKcal(entries) + ' kcal';
+      listEl.innerHTML = entries.map((e, i) => `
+        <div class="entry-row">
+          <span class="entry-name">${e.food}</span>
+          <span class="entry-meta">${e.grams}g · ${Math.round(e.calories)} kcal</span>
+          <button class="entry-del" onclick="deleteEntry('${slot}',${i})">×</button>
+        </div>`).join('');
+    }
+
+    function renderLog() {
+      const log = loadTodayLog();
+      for (const slot of MEAL_SLOTS) {
+        renderMealEntries(slot, (log.meals || {})[slot] || []);
+      }
+    }
+
+    function deleteEntry(slot, idx) {
+      const log = loadTodayLog();
+      if (!log.meals?.[slot]) return;
+      log.meals[slot].splice(idx, 1);
+      saveTodayLog(log);
+      renderMealEntries(slot, log.meals[slot]);
+      refreshDashboard();
+    }
+
+    // ── Auto-log 1 egg in Breakfast each new day ──
+    function autoLogEgg() {
+      const log = loadTodayLog();
+      if (log._eggAutoLogged) return;
+      const entry = calculateNutrients('Whole Egg (boiled)', 50);
+      if (!log.meals) log.meals = {};
+      if (!log.meals.breakfast) log.meals.breakfast = [];
+      log.meals.breakfast.unshift(entry);
+      log._eggAutoLogged = true;
+      saveTodayLog(log);
+    }
+
+    // ── Modal: open / close ──
+    function openAddFood(slot) {
+      _activeSlot = slot;
+      _selectedFood = null;
+      document.getElementById('modal-title').textContent =
+        'Add to ' + MEAL_META[slot].icon + ' ' + MEAL_META[slot].label;
+      document.getElementById('modal-step-search').style.display = '';
+      document.getElementById('modal-step-gram').style.display = 'none';
+      const inp = document.getElementById('modal-search');
+      inp.value = '';
+      onModalSearch('');
+      document.getElementById('modal-overlay').classList.add('open');
+      setTimeout(() => inp.focus(), 260);
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
+
+    // ── Modal step 1: search ──
+    function onModalSearch(val) {
+      const names = searchFoods(val).slice(0, 30);
+      const el = document.getElementById('modal-results');
+      if (!names.length) {
+        el.innerHTML = '<div class="empty-state">No results. Try a different name.</div>';
+        return;
+      }
+      el.innerHTML = names.map(name => {
+        const f = FOOD_DB[name];
+        const n = f.per100g;
+        const safe = name.replace(/'/g, '&#39;');
+        return `<div class="food-item" onclick='pickFood(${JSON.stringify(name)})'>
+          <div>
+            <div class="food-name">${safe}</div>
+            <div class="food-cat">${f.category} · ${f.serving.label}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="food-cal">${n.calories} kcal</div>
+            <div class="food-macros">P ${n.protein}g · C ${n.carbs}g · F ${n.fat}g</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Modal step 2: gram entry ──
+    function pickFood(name) {
+      _selectedFood = name;
+      const food = FOOD_DB[name];
+      document.getElementById('sel-food-name').textContent = name;
+      document.getElementById('sel-food-cat').textContent  = food.category;
+
+      const chips = [
+        { label: food.serving.label, grams: food.serving.grams },
+        { label: '100g', grams: 100 },
+      ];
+      document.getElementById('serving-chips').innerHTML = chips.map((c, i) =>
+        `<button class="chip ${i === 0 ? 'active' : ''}"
+          onclick="applyChip(this,${c.grams})">${c.label}</button>`
+      ).join('');
+
+      document.getElementById('gram-input').value = food.serving.grams;
+      document.getElementById('modal-step-search').style.display = 'none';
+      document.getElementById('modal-step-gram').style.display = '';
+      updateGramPreview();
+    }
+
+    function applyChip(btn, grams) {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('gram-input').value = grams;
+      updateGramPreview();
+    }
+
+    function backToSearch() {
+      _selectedFood = null;
+      document.getElementById('modal-step-search').style.display = '';
+      document.getElementById('modal-step-gram').style.display = 'none';
+    }
+
+    function updateGramPreview() {
+      if (!_selectedFood) return;
+      const grams = parseFloat(document.getElementById('gram-input').value) || 0;
+      const n = calculateNutrients(_selectedFood, grams);
+      document.getElementById('nutr-preview').innerHTML = `
+        <div class="nutr-item"><div class="nutr-val n-cal">${Math.round(n.calories)}</div><div class="nutr-lbl">kcal</div></div>
+        <div class="nutr-item"><div class="nutr-val n-pro">${n.protein}g</div><div class="nutr-lbl">Protein</div></div>
+        <div class="nutr-item"><div class="nutr-val n-carb">${n.carbs}g</div><div class="nutr-lbl">Carbs</div></div>
+        <div class="nutr-item"><div class="nutr-val n-fat">${n.fat}g</div><div class="nutr-lbl">Fat</div></div>`;
+    }
+
+    function confirmAddFood() {
+      if (!_selectedFood || !_activeSlot) return;
+      const grams = parseFloat(document.getElementById('gram-input').value) || 0;
+      if (grams <= 0) return;
+      const entry = calculateNutrients(_selectedFood, grams);
+      const log = loadTodayLog();
+      if (!log.meals) log.meals = {};
+      if (!log.meals[_activeSlot]) log.meals[_activeSlot] = [];
+      log.meals[_activeSlot].push(entry);
+      saveTodayLog(log);
+      renderMealEntries(_activeSlot, log.meals[_activeSlot]);
+      refreshDashboard();
+      closeModal();
+    }
+
+    // refresh log view when tab is tapped
+    document.querySelector('[data-view="log"]').addEventListener('click', renderLog);
+
+    // ── Daily targets ──
+    const TARGETS = {
+      calories: 2700, protein: 110, carbs: 350, fat: 75,
+      fiber: 30, iron: 19, calcium: 1000, vitD: 600,
+      b12: 2.4, zinc: 11, magnesium: 400, potassium: 3500,
+      water: 12
+    };
+
+    // ── localStorage key for today ──
+    function todayKey() {
+      return 'dt_log_' + new Date().toISOString().slice(0, 10);
+    }
+
+    function loadTodayLog() {
+      try { return JSON.parse(localStorage.getItem(todayKey())) || {}; }
+      catch { return {}; }
+    }
+
+    function saveTodayLog(log) {
+      localStorage.setItem(todayKey(), JSON.stringify(log));
+    }
+
+    // Compute totals from meal entries (Phase 4 will populate meals)
+    function computeTotals(log) {
+      const zero = { calories:0, protein:0, carbs:0, fat:0, fiber:0,
+                     iron:0, calcium:0, vitD:0, b12:0, zinc:0, magnesium:0, potassium:0 };
+      const meals = log.meals || {};
+      for (const slot of Object.values(meals)) {
+        for (const entry of (slot || [])) {
+          for (const k of Object.keys(zero)) {
+            zero[k] = Math.round((zero[k] + (entry[k] || 0)) * 10) / 10;
+          }
+        }
+      }
+      return zero;
+    }
+
+    // ── Calorie ring (Chart.js doughnut) ──
+    let calorieChart = null;
+
+    function initCalorieRing(eaten, target) {
+      const ctx = document.getElementById('calorie-ring').getContext('2d');
+      const remaining = Math.max(target - eaten, 0);
+      const over      = Math.max(eaten - target, 0);
+      const data = eaten <= target
+        ? [eaten, remaining]
+        : [target, 0, over];
+      const colors = eaten <= target
+        ? ['#22c55e', '#1f2937']
+        : ['#22c55e', '#1f2937', '#ef4444'];
+
+      if (calorieChart) { calorieChart.destroy(); calorieChart = null; }
+
+      calorieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 0 }] },
+        options: {
+          cutout: '72%',
+          animation: { duration: 600 },
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          events: []
+        }
+      });
+
+      document.getElementById('ring-eaten').textContent = Math.round(eaten);
+      const remEl = document.getElementById('ring-remain');
+      if (over > 0) {
+        remEl.textContent = `+${Math.round(over)} over`;
+        remEl.style.color = '#ef4444';
+      } else {
+        remEl.textContent = `${Math.round(remaining)} left`;
+        remEl.style.color = '';
+      }
+    }
+
+    // ── Progress bar helpers ──
+    function progBar(name, got, target, unit, cssClass) {
+      const pct = target > 0 ? Math.min((got / target) * 100, 100) : 0;
+      const over = got > target;
+      return `
+        <div class="prog-row">
+          <div class="prog-head">
+            <span class="prog-name">${name}</span>
+            <span class="prog-vals">${got}${unit} / ${target}${unit}</span>
+          </div>
+          <div class="prog-track">
+            <div class="prog-fill ${over ? 'fill-over' : cssClass}" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+    }
+
+    function renderMacros(t) {
+      document.getElementById('macro-bars').innerHTML = [
+        progBar('Protein', t.protein, TARGETS.protein, 'g', 'fill-protein'),
+        progBar('Carbs',   t.carbs,   TARGETS.carbs,   'g', 'fill-carbs'),
+        progBar('Fat',     t.fat,     TARGETS.fat,      'g', 'fill-fat'),
+      ].join('');
+    }
+
+    function renderMicros(t) {
+      document.getElementById('micro-bars').innerHTML = [
+        progBar('Fiber',     t.fiber,     TARGETS.fiber,     'g',   'fill-fiber'),
+        progBar('Iron',      t.iron,      TARGETS.iron,      'mg',  'fill-iron'),
+        progBar('Calcium',   t.calcium,   TARGETS.calcium,   'mg',  'fill-calcium'),
+        progBar('Vitamin D', t.vitD,      TARGETS.vitD,      'IU',  'fill-vitD'),
+        progBar('Vitamin B12',t.b12,      TARGETS.b12,       'mcg', 'fill-b12'),
+        progBar('Zinc',      t.zinc,      TARGETS.zinc,      'mg',  'fill-zinc'),
+        progBar('Magnesium', t.magnesium, TARGETS.magnesium, 'mg',  'fill-magnesium'),
+        progBar('Potassium', t.potassium, TARGETS.potassium, 'mg',  'fill-potassium'),
+      ].join('');
+    }
+
+    // ── Water tracker ──
+    function renderWater(glasses) {
+      const grid = document.getElementById('water-grid');
+      grid.innerHTML = Array.from({length: 12}, (_, i) => {
+        const filled = i < glasses;
+        return `<button class="glass-btn ${filled ? 'filled' : ''}"
+          onclick="toggleGlass(${i})">${filled ? '🥤' : '🫙'}</button>`;
+      }).join('');
+      document.getElementById('water-count').textContent = `${glasses} / 12 glasses`;
+    }
+
+    function toggleGlass(idx) {
+      const log = loadTodayLog();
+      const cur = log.water || 0;
+      // clicking a filled glass below cursor empties to that index; clicking empty fills to that index+1
+      log.water = idx < cur ? idx : idx + 1;
+      saveTodayLog(log);
+      renderWater(log.water);
+    }
+
+    // ── Master refresh ──
+    function refreshDashboard() {
+      const log    = loadTodayLog();
+      const totals = computeTotals(log);
+      const water  = log.water || 0;
+
+      initCalorieRing(totals.calories, TARGETS.calories);
+
+      document.getElementById('dash-protein').textContent = totals.protein + 'g';
+      document.getElementById('dash-carbs').textContent   = totals.carbs   + 'g';
+      document.getElementById('dash-fat').textContent     = totals.fat     + 'g';
+
+      renderMacros(totals);
+      renderMicros(totals);
+      renderWater(water);
+    }
+
+    // refresh dashboard when Home tab is tapped
+    document.querySelector('[data-view="home"]').addEventListener('click', refreshDashboard);
+
+    // ── Progress / History ──
+
+    function dateKey(daysAgo) {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return 'dt_log_' + d.toISOString().slice(0, 10);
+    }
+
+    function getLast7Logs() {
+      return Array.from({ length: 7 }, (_, i) => {
+        try { return JSON.parse(localStorage.getItem(dateKey(6 - i))) || null; }
+        catch { return null; }
+      });
+    }
+
+    function getDayLabel(daysAgo) {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return d.toLocaleDateString('en-IN', { weekday: 'short' });
+    }
+
+    function getDayTotals(log) {
+      if (!log) return null;
+      return computeTotals(log);
+    }
+
+    // ── Streak counter ──
+    function calcStreak() {
+      let streak = 0;
+      for (let i = 0; i < 30; i++) {
+        const key = dateKey(i);
+        try {
+          const log = JSON.parse(localStorage.getItem(key));
+          if (!log) break;
+          const t = computeTotals(log);
+          if (t.calories >= TARGETS.calories * 0.8) streak++;
+          else if (i > 0) break;
+        } catch { break; }
+      }
+      return streak;
+    }
+
+    // ── Charts ──
+    let barChart    = null;
+    let weightChart = null;
+
+    function renderCalorieBarChart(logs) {
+      const labels = Array.from({ length: 7 }, (_, i) => getDayLabel(6 - i));
+      const data   = logs.map(log => {
+        const t = getDayTotals(log);
+        return t ? Math.round(t.calories) : 0;
+      });
+      const colors = data.map(v =>
+        v === 0 ? '#374151' : v >= TARGETS.calories ? '#22c55e' : '#60a5fa'
+      );
+
+      const ctx = document.getElementById('calorie-bar-chart').getContext('2d');
+      if (barChart) { barChart.destroy(); barChart = null; }
+
+      barChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data, backgroundColor: colors, borderRadius: 6, borderSkipped: false,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => ctx.parsed.y + ' kcal' }
+          }},
+          scales: {
+            x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+            y: {
+              grid: { color: '#374151' }, ticks: { color: '#9ca3af' },
+              beginAtZero: true,
+              suggestedMax: TARGETS.calories + 300,
+            }
+          }
+        }
+      });
+    }
+
+    // ── Weight log ──
+    function getWeightLog() {
+      try { return JSON.parse(localStorage.getItem('dt_weights')) || []; }
+      catch { return []; }
+    }
+
+    function logWeight() {
+      const val = parseFloat(document.getElementById('weight-input').value);
+      if (!val || val < 20 || val > 300) return;
+      const weights = getWeightLog();
+      const today = new Date().toISOString().slice(0, 10);
+      const existing = weights.findIndex(w => w.date === today);
+      if (existing >= 0) weights[existing].kg = val;
+      else weights.push({ date: today, kg: val });
+      weights.sort((a, b) => a.date.localeCompare(b.date));
+      localStorage.setItem('dt_weights', JSON.stringify(weights));
+      document.getElementById('weight-input').value = '';
+      renderWeightChart();
+    }
+
+    function renderWeightChart() {
+      const weights = getWeightLog().slice(-30);
+      const ctx = document.getElementById('weight-chart').getContext('2d');
+      if (weightChart) { weightChart.destroy(); weightChart = null; }
+
+      if (weights.length === 0) {
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No weight entries yet', ctx.canvas.width / 2, 90);
+        return;
+      }
+
+      weightChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weights.map(w => {
+            const d = new Date(w.date);
+            return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+          }),
+          datasets: [{
+            data: weights.map(w => w.kg),
+            borderColor: '#22c55e', backgroundColor: '#22c55e22',
+            pointBackgroundColor: '#22c55e', pointRadius: 4,
+            fill: true, tension: 0.35,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => ctx.parsed.y + ' kg' }
+          }},
+          scales: {
+            x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', maxTicksLimit: 7 } },
+            y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+          }
+        }
+      });
+    }
+
+    // ── Weekly averages ──
+    function renderWeeklyAverages(logs) {
+      const validLogs = logs.filter(Boolean);
+      if (validLogs.length === 0) {
+        document.getElementById('weekly-grid').innerHTML =
+          '<div class="empty-state" style="grid-column:span 2">Log food for a few days to see averages.</div>';
+        return;
+      }
+
+      const keys = ['calories','protein','carbs','fat','fiber','iron','calcium','vitD','b12','zinc','magnesium','potassium'];
+      const labels = { calories:'Calories',protein:'Protein',carbs:'Carbs',fat:'Fat',
+                       fiber:'Fiber',iron:'Iron',calcium:'Calcium',vitD:'Vitamin D',
+                       b12:'Vitamin B12',zinc:'Zinc',magnesium:'Magnesium',potassium:'Potassium' };
+      const units  = { calories:'kcal',protein:'g',carbs:'g',fat:'g',fiber:'g',
+                       iron:'mg',calcium:'mg',vitD:'IU',b12:'mcg',zinc:'mg',magnesium:'mg',potassium:'mg' };
+
+      const avgs = {};
+      for (const k of keys) {
+        const sum = validLogs.reduce((s, log) => s + (computeTotals(log)[k] || 0), 0);
+        avgs[k] = Math.round((sum / validLogs.length) * 10) / 10;
+      }
+
+      document.getElementById('weekly-grid').innerHTML = keys.map(k => {
+        const pct = TARGETS[k] ? Math.round((avgs[k] / TARGETS[k]) * 100) : null;
+        return `<div class="weekly-item">
+          <div class="weekly-name">${labels[k]}</div>
+          <div class="weekly-val">${avgs[k]}${units[k]}${pct !== null ? `<span class="weekly-pct">${pct}%</span>` : ''}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Master progress refresh ──
+    function refreshProgress() {
+      const logs      = getLast7Logs();
+      const validLogs = logs.filter(Boolean);
+      const streak    = calcStreak();
+
+      document.getElementById('streak-count').textContent = streak;
+      document.getElementById('days-logged').textContent  = validLogs.length;
+
+      if (validLogs.length > 0) {
+        const totalCal = validLogs.reduce((s, l) => s + computeTotals(l).calories, 0);
+        document.getElementById('avg-cal').textContent = Math.round(totalCal / validLogs.length);
+      } else {
+        document.getElementById('avg-cal').textContent = '—';
+      }
+
+      renderCalorieBarChart(logs);
+      renderWeightChart();
+      renderWeeklyAverages(logs);
+    }
+
+    document.querySelector('[data-view="progress"]').addEventListener('click', refreshProgress);
+
+    // ── Settings ──
+
+    const DEFAULT_PROFILE = { age:21, weight:47, height:170, activity:1.375, goal:'gain', gender:'male' };
+
+    function loadProfile() {
+      try { return JSON.parse(localStorage.getItem('dt_profile')) || { ...DEFAULT_PROFILE }; }
+      catch { return { ...DEFAULT_PROFILE }; }
+    }
+
+    function saveProfile(p) {
+      localStorage.setItem('dt_profile', JSON.stringify(p));
+    }
+
+    function calcTDEE(p) {
+      // Mifflin-St Jeor BMR
+      const bmr = p.gender === 'female'
+        ? 10 * p.weight + 6.25 * p.height - 5 * p.age - 161
+        : 10 * p.weight + 6.25 * p.height - 5 * p.age + 5;
+      let tdee = bmr * p.activity;
+      if (p.goal === 'gain')     tdee += 400;
+      else if (p.goal === 'lose') tdee -= 400;
+      return Math.round(tdee);
+    }
+
+    function applyTargets(p) {
+      const cal = calcTDEE(p);
+      TARGETS.calories  = cal;
+      TARGETS.protein   = Math.round(p.weight * 2.2);
+      TARGETS.fat       = Math.round((cal * 0.25) / 9);
+      TARGETS.carbs     = Math.round((cal - TARGETS.protein * 4 - TARGETS.fat * 9) / 4);
+    }
+
+    function renderTargetGrid() {
+      const items = [
+        { name:'Calories',   val: TARGETS.calories + ' kcal' },
+        { name:'Protein',    val: TARGETS.protein  + 'g' },
+        { name:'Carbs',      val: TARGETS.carbs    + 'g' },
+        { name:'Fat',        val: TARGETS.fat       + 'g' },
+        { name:'Fiber',      val: TARGETS.fiber     + 'g' },
+        { name:'Iron',       val: TARGETS.iron      + 'mg' },
+        { name:'Calcium',    val: TARGETS.calcium   + 'mg' },
+        { name:'Vitamin D',  val: TARGETS.vitD      + ' IU' },
+        { name:'Vitamin B12',val: TARGETS.b12       + ' mcg' },
+        { name:'Zinc',       val: TARGETS.zinc      + 'mg' },
+        { name:'Magnesium',  val: TARGETS.magnesium + 'mg' },
+        { name:'Water',      val: TARGETS.water     + ' glasses' },
+      ];
+      document.getElementById('target-grid').innerHTML = items.map(i =>
+        `<div class="target-item">
+           <div class="target-name">${i.name}</div>
+           <div class="target-val">${i.val}</div>
+         </div>`
+      ).join('');
+    }
+
+    function populateProfileFields() {
+      const p = loadProfile();
+      document.getElementById('s-age').value      = p.age;
+      document.getElementById('s-weight').value   = p.weight;
+      document.getElementById('s-height').value   = p.height;
+      document.getElementById('s-activity').value = p.activity;
+      document.getElementById('s-goal').value     = p.goal;
+      document.getElementById('s-gender').value   = p.gender;
+    }
+
+    function saveAndRecalc() {
+      const p = {
+        age:      parseFloat(document.getElementById('s-age').value)    || DEFAULT_PROFILE.age,
+        weight:   parseFloat(document.getElementById('s-weight').value) || DEFAULT_PROFILE.weight,
+        height:   parseFloat(document.getElementById('s-height').value) || DEFAULT_PROFILE.height,
+        activity: parseFloat(document.getElementById('s-activity').value),
+        goal:     document.getElementById('s-goal').value,
+        gender:   document.getElementById('s-gender').value,
+      };
+      saveProfile(p);
+      applyTargets(p);
+      renderTargetGrid();
+      showToast('Targets updated!');
+    }
+
+    // ── Theme toggle ──
+    function toggleTheme() {
+      const isLight = document.documentElement.dataset.theme === 'light';
+      const next = isLight ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next === 'dark' ? '' : next;
+      document.getElementById('theme-toggle').classList.toggle('on', next === 'light');
+      localStorage.setItem('dt_theme', next);
+    }
+
+    function applyStoredTheme() {
+      const t = localStorage.getItem('dt_theme');
+      if (t === 'light') {
+        document.documentElement.dataset.theme = 'light';
+        const tog = document.getElementById('theme-toggle');
+        if (tog) tog.classList.add('on');
+      }
+    }
+
+    // ── Export ──
+    function exportData() {
+      const out = { exported: new Date().toISOString(), profile: loadProfile(), logs: {}, weights: getWeightLog() };
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith('dt_log_')) {
+          try { out.logs[k] = JSON.parse(localStorage.getItem(k)); } catch {}
+        }
+      }
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'diet-tracker-backup-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ── Clear today ──
+    function clearToday() {
+      if (!confirm('Clear all food logged today?')) return;
+      localStorage.removeItem(todayKey());
+      refreshDashboard();
+      renderLog();
+      showToast('Today cleared');
+    }
+
+    // ── Toast ──
+    function showToast(msg) {
+      const el = document.getElementById('save-toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    // load settings when tab opens
+    document.querySelector('[data-view="settings"]').addEventListener('click', () => {
+      populateProfileFields();
+      renderTargetGrid();
+    });
+
+    // ── Greeting based on time ──
+    function setGreeting() {
+      const h = new Date().getHours();
+      const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      const el = document.getElementById('greeting');
+      if (el) el.textContent = g + ' 👋';
+    }
+
+    // ── Set today's date + greeting + dashboard ──
+    (function init() {
+      const d = new Date();
+      const opts = { weekday: 'long', month: 'long', day: 'numeric' };
+      const label = d.toLocaleDateString('en-IN', opts);
+      ['home-date', 'log-date'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = label;
+      });
+      applyStoredTheme();
+      applyTargets(loadProfile());
+      setGreeting();
+      autoLogEgg();
+      refreshDashboard();
+      renderLog();
+    })();
+  </script>
+</body>
+</html>
