@@ -619,9 +619,10 @@
     .cat-chip {
       flex-shrink: 0; padding: 5px 13px; border-radius: 99px;
       font-family: inherit; font-size: 0.72rem; font-weight: 700;
-      background: var(--surface2); border: 1.5px solid var(--border);
+      background: var(--surface2); border: 1.5px solid rgba(255,255,255,0.1);
       color: var(--muted); cursor: pointer; transition: all 0.15s;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
       white-space: nowrap;
     }
     .cat-chip.active {
@@ -1437,7 +1438,7 @@
       if (!el) return;
       el.innerHTML = ['All', ...ALL_CATS].map(c =>
         `<button class="cat-chip${(!_activeCat && c==='All')||_activeCat===c?' active':''}"
-          onclick="selectCat(${JSON.stringify(c)})">${c}</button>`
+          onclick="selectCat('${c.replace(/'/g,"\\'")}')">${c}</button>`
       ).join('');
     }
 
