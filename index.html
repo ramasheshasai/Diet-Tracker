@@ -1003,6 +1003,25 @@
           <option value="female">Female</option>
         </select>
       </div>
+      <div class="field-row">
+        <div>
+          <span class="field-lbl">Protein Target</span>
+          <div style="font-size:0.68rem;color:var(--muted);margin-top:2px">grams per kg of body weight</div>
+        </div>
+        <select class="field-select" id="s-protein-mul">
+          <option value="1.2">1.2× (Minimum)</option>
+          <option value="1.5" selected>1.5× (Moderate)</option>
+          <option value="1.8">1.8× (Active)</option>
+          <option value="2.0">2.0× (Athlete)</option>
+          <option value="2.2">2.2× (Max Muscle)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Formula breakdown card -->
+    <div class="card" style="margin-bottom:16px" id="formula-card">
+      <div class="card-title">How your targets are calculated</div>
+      <div id="formula-breakdown" style="font-size:0.82rem;line-height:1.8;color:var(--muted)"></div>
     </div>
 
     <button class="btn-accent" onclick="saveAndRecalc()" style="margin-bottom:16px">
@@ -2233,7 +2252,7 @@
 
     // ── Settings ──
 
-    const DEFAULT_PROFILE = { age:21, weight:47, height:170, activity:1.375, goal:'gain', gender:'male', targetWeight: null };
+    const DEFAULT_PROFILE = { age:21, weight:47, height:170, activity:1.375, goal:'gain', gender:'male', targetWeight: null, proteinMultiplier: 1.5 };
 
     function loadProfile() {
       try { return JSON.parse(localStorage.getItem('dt_profile')) || { ...DEFAULT_PROFILE }; }
@@ -2256,11 +2275,12 @@
     }
 
     function applyTargets(p) {
-      const cal = calcTDEE(p);
-      TARGETS.calories  = cal;
-      TARGETS.protein   = Math.round(p.weight * 2.2);
-      TARGETS.fat       = Math.round((cal * 0.25) / 9);
-      TARGETS.carbs     = Math.round((cal - TARGETS.protein * 4 - TARGETS.fat * 9) / 4);
+      const cal        = calcTDEE(p);
+      const multiplier = p.proteinMultiplier || 1.5;
+      TARGETS.calories = cal;
+      TARGETS.protein  = Math.round(p.weight * multiplier);
+      TARGETS.fat      = Math.round((cal * 0.25) / 9);
+      TARGETS.carbs    = Math.round((cal - TARGETS.protein * 4 - TARGETS.fat * 9) / 4);
     }
 
     function renderTargetGrid() {
@@ -2295,6 +2315,8 @@
       document.getElementById('s-goal').value          = p.goal;
       document.getElementById('s-gender').value        = p.gender;
       document.getElementById('s-target-weight').value = p.targetWeight || '';
+      document.getElementById('s-protein-mul').value   = p.proteinMultiplier || 1.5;
+      renderFormulaBreakdown(p);
     }
 
     function saveAndRecalc() {
@@ -2303,16 +2325,49 @@
         weight:   parseFloat(document.getElementById('s-weight').value) || DEFAULT_PROFILE.weight,
         height:   parseFloat(document.getElementById('s-height').value) || DEFAULT_PROFILE.height,
         activity: parseFloat(document.getElementById('s-activity').value),
-        goal:         document.getElementById('s-goal').value,
-        gender:       document.getElementById('s-gender').value,
-        targetWeight: parseFloat(document.getElementById('s-target-weight').value) || null,
+        goal:             document.getElementById('s-goal').value,
+        gender:           document.getElementById('s-gender').value,
+        targetWeight:     parseFloat(document.getElementById('s-target-weight').value) || null,
+        proteinMultiplier: parseFloat(document.getElementById('s-protein-mul').value) || 1.5,
       };
       saveProfile(p);
       applyTargets(p);
       renderTargetGrid();
       renderWeightGoalCard();
+      renderFormulaBreakdown(p);
       refreshDashboard();
       showToast('Targets updated!');
+    }
+
+    function renderFormulaBreakdown(p) {
+      const el = document.getElementById('formula-breakdown');
+      if (!el) return;
+      const mul  = p.proteinMultiplier || 1.5;
+      const cal  = calcTDEE(p);
+      const prot = Math.round(p.weight * mul);
+      const fat  = Math.round((cal * 0.25) / 9);
+      const carb = Math.round((cal - prot * 4 - fat * 9) / 4);
+      const actMap = {'1.2':'Sedentary','1.375':'Lightly active','1.55':'Moderately active','1.725':'Very active','1.9':'Extra active'};
+      el.innerHTML = `
+        <div style="display:grid;gap:6px">
+          <div><span style="color:var(--text);font-weight:700">Calories (TDEE)</span><br>
+            Mifflin-St Jeor BMR × ${p.activity} (${actMap[p.activity]||''})
+            ${p.goal==='gain'?' + 400 kcal surplus':p.goal==='lose'?' − 400 kcal deficit':''}<br>
+            <span style="color:var(--accent);font-weight:800">= ${cal} kcal</span>
+          </div>
+          <div><span style="color:var(--blue);font-weight:700">Protein</span><br>
+            ${p.weight} kg × ${mul} g/kg<br>
+            <span style="color:var(--blue);font-weight:800">= ${prot}g &nbsp;(${Math.round(prot*4)} kcal)</span>
+          </div>
+          <div><span style="color:var(--red);font-weight:700">Fat</span><br>
+            25% of total calories ÷ 9<br>
+            <span style="color:var(--red);font-weight:800">= ${fat}g &nbsp;(${Math.round(fat*9)} kcal)</span>
+          </div>
+          <div><span style="color:var(--yellow);font-weight:700">Carbs</span><br>
+            Remaining calories ÷ 4<br>
+            <span style="color:var(--yellow);font-weight:800">= ${carb}g &nbsp;(${Math.round(carb*4)} kcal)</span>
+          </div>
+        </div>`;
     }
 
     // ── Theme toggle ──
